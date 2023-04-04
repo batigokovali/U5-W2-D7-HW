@@ -38,12 +38,8 @@ blogpostsRouter.get("/", basicAuthMiddleware, async (req, res, next) => {
 blogpostsRouter.get("/me/stories", basicAuthMiddleware, async (req, res, next) => {
     try {
         const mongoQuery = q2m(req.query)
-        const totalAll = await BlogpostsModel.countDocuments(mongoQuery.criteria)
         const blogposts = await BlogpostsModel.find({ author: req.author._id })
         res.send({
-            links: mongoQuery.links("http://localhost:3001/blogposts", total),
-            total,
-            numberOfPages: Math.ceil(total / mongoQuery.options.limit),
             blogposts
         })
     } catch (error) {
