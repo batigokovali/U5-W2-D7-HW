@@ -15,7 +15,7 @@ const blogpostsSchema = new Schema(
                     validator: function (unit) {
                         return ["seconds", "minutes", "hours", "years"].includes(unit);
                     },
-                    message: "Unit must be one of 'seconds', 'minutes','hours' oe 'years'!",
+                    message: "Unit must be one of 'seconds', 'minutes','hours' or 'years'!",
                 },
             }
         },

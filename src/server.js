@@ -2,7 +2,7 @@ import Express from "express"
 import listEndpoints from "express-list-endpoints"
 import cors from "cors"
 import mongoose from "mongoose"
-import { badRequestHandler, notFoundHandler, genericErrorHandler } from "./errorHandlers.js"
+import { forbiddenErrorHandler, genericErroHandler, notFoundErrorHandler, unauthorizedErrorHandler } from "./errorHandlers.js"
 import blogpostsRouter from "./blogposts/index.js"
 import authorsRouter from "./authors/index.js"
 
@@ -31,9 +31,10 @@ server.use("/blogposts", blogpostsRouter)
 server.use("/authors", authorsRouter)
 
 //Error Handlers
-server.use(badRequestHandler)
-server.use(notFoundHandler)
-server.use(genericErrorHandler)
+server.use(unauthorizedErrorHandler)
+server.use(forbiddenErrorHandler)
+server.use(notFoundErrorHandler)
+server.use(genericErroHandler)
 
 mongoose.connect(process.env.MONGO_URL)
 

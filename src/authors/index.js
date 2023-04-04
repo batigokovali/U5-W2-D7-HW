@@ -1,7 +1,9 @@
 import express from "express"
 import createHttpError from "http-errors"
-import AuthorsModel from "./model.js"
 import q2m from "query-to-mongo"
+import { basicAuthMiddleware } from "../lib/auth/basic.js"
+import { adminOnlyMiddleware } from "../lib/auth/admin.js"
+import AuthorsModel from "./model.js"
 
 const authorsRouter = express.Router()
 
@@ -15,7 +17,7 @@ authorsRouter.post("/", async (req, res, next) => {
     }
 })
 
-authorsRouter.get("/", async (req, res, next) => {
+authorsRouter.get("/", basicAuthMiddleware, adminOnlyMiddleware, async (req, res, next) => {
     try {
         console.log("req.query:", req.query)
         console.log("q2m:", q2m(req.query))
@@ -37,7 +39,33 @@ authorsRouter.get("/", async (req, res, next) => {
     }
 })
 
-authorsRouter.get("/:authorID", async (req, res, next) => {
+authorsRouter.get("/me", basicAuthMiddleware, async (req, res, next) => {
+    try {
+        res.send(req.author)
+    } catch (error) {
+        next(error)
+    }
+})
+
+authorsRouter.put("/me", basicAuthMiddleware, async (req, res, next) => {
+    try {
+        const updatedAuthor = await AuthorsModel.findByIdAndUpdate(req.author._id, req.body, { new: true, runValidators: true })
+        res.send(updatedAuthor)
+    } catch (error) {
+        next(error)
+    }
+})
+
+authorsRouter.delete("/me", basicAuthMiddleware, async (req, res, next) => {
+    try {
+        await AuthorsModel.findOneAndDelete(req.author._id)
+        res.status(204).send()
+    } catch (error) {
+        next(error)
+    }
+})
+
+authorsRouter.get("/:authorID", basicAuthMiddleware, async (req, res, next) => {
     try {
         const author = await AuthorsModel.findById(req.params.authorID)
         if (author) {
@@ -50,7 +78,9 @@ authorsRouter.get("/:authorID", async (req, res, next) => {
     }
 })
 
-authorsRouter.put("/:authorID", async (req, res, next) => {
+
+//ADMIN PUT
+authorsRouter.put("/:authorID", basicAuthMiddleware, adminOnlyMiddleware, async (req, res, next) => {
     try {
         const updatedAuthor = await AuthorsModel.findByIdAndUpdate(
             req.params.authorID,
@@ -67,11 +97,13 @@ authorsRouter.put("/:authorID", async (req, res, next) => {
     }
 })
 
-authorsRouter.delete("/:authorID", async (req, res, next) => {
+
+//ADMIN DELETE
+authorsRouter.delete("/:authorID", basicAuthMiddleware, adminOnlyMiddleware, async (req, res, next) => {
     try {
         const deletedAuthor = await AuthorsModel.findByIdAndDelete(req.params.authorID)
         if (deletedAuthor) {
-            res.status(204).semd()
+            res.status(204).send()
         } else {
             next(createHttpError(404, `Author with id ${req.params.authorID} not found!`))
         }

@@ -2,13 +2,15 @@ import express from "express"
 import createHttpError from "http-errors"
 import BlogpostsModel from "./model.js"
 import q2m from "query-to-mongo"
+import { basicAuthMiddleware } from "../lib/auth/basic.js"
+import { adminOnlyMiddleware } from "../lib/auth/admin.js"
+import AuthorsModel from "./model.js"
 
 const blogpostsRouter = express.Router()
 
-blogpostsRouter.post("/", async (req, res, next) => {
+blogpostsRouter.post("/", basicAuthMiddleware, async (req, res, next) => {
     try {
-
-        const newBlogpost = new BlogpostsModel(req.body)
+        const newBlogpost = new BlogpostsModel({ ...req.body, author: req.author._id })
         const { _id } = await newBlogpost.save()
         res.status(201).send({ _id })
     } catch (error) {
@@ -16,10 +18,11 @@ blogpostsRouter.post("/", async (req, res, next) => {
     }
 })
 
-blogpostsRouter.get("/", async (req, res, next) => {
+blogpostsRouter.get("/", basicAuthMiddleware, async (req, res, next) => {
     try {
         const mongoQuery = q2m(req.query)
-        const { blogposts, total } = await BlogpostsModel.findBlogpostsWithAuthors(mongoQuery)
+        const total = await BlogpostsModel.countDocuments(mongoQuery.criteria)
+        const blogposts = await BlogpostsModel.find()
         res.send({
             links: mongoQuery.links("http://localhost:3001/blogposts", total),
             total,
@@ -31,10 +34,58 @@ blogpostsRouter.get("/", async (req, res, next) => {
     }
 })
 
+
+blogpostsRouter.get("/me/stories", basicAuthMiddleware, async (req, res, next) => {
+    try {
+        const mongoQuery = q2m(req.query)
+        const totalAll = await BlogpostsModel.countDocuments(mongoQuery.criteria)
+        const blogposts = await BlogpostsModel.find({ author: req.author._id })
+        res.send({
+            links: mongoQuery.links("http://localhost:3001/blogposts", total),
+            total,
+            numberOfPages: Math.ceil(total / mongoQuery.options.limit),
+            blogposts
+        })
+    } catch (error) {
+        next(error)
+    }
+})
+
+//USER blogpost put
+blogpostsRouter.put("/me/:blogpostID", basicAuthMiddleware, async (req, res, next) => {
+    try {
+        const blogpost = await BlogpostsModel.findById(req.params.blogpostID)
+        if (blogpost) {
+            const updatedBlogpost = await BlogpostsModel.findByIdAndUpdate(req.params.blogpostID, req.body, { new: true, runValidators: true })
+            res.send(updatedBlogpost)
+        } else {
+            next(createHttpError(404, `Author with id ${req.params.blogpostID} not found!`))
+        }
+
+    } catch (error) {
+        next(error)
+    }
+})
+
+blogpostsRouter.delete("/me/:blogpostID", basicAuthMiddleware, async (req, res, next) => {
+    try {
+        const blogpost = await BlogpostsModel.findById(req.params.blogpostID)
+        if (blogpost) {
+            const deletedBlogpost = await BlogpostsModel.findOneAndDelete(req.params.blogpostID)
+            res.status(204).send()
+        } else {
+            next(createHttpError(404, `Author with id ${req.params.blogpostID} not found!`))
+        }
+
+    } catch (error) {
+        next(error)
+    }
+})
+
 blogpostsRouter.get("/:blogpostID", async (req, res, next) => {
     try {
         const mongoQuery = q2m(req.query)
-        const blogpost = await BlogpostsModel.findBlogpostWithAuthor(req.params.blogpostID)
+        const blogpost = await BlogpostsModel.find({ _id: req.params.blogpostID })
         if (blogpost) {
             res.send(blogpost)
         } else {
@@ -45,7 +96,8 @@ blogpostsRouter.get("/:blogpostID", async (req, res, next) => {
     }
 })
 
-blogpostsRouter.put("/:blogpostID", async (req, res, next) => {
+//ADMIN PUT
+blogpostsRouter.put("/:blogpostID", basicAuthMiddleware, adminOnlyMiddleware, async (req, res, next) => {
     try {
         const updatedBlogpost = await BlogpostsModel.findByIdAndUpdate(
             req.params.blogpostID,
@@ -62,7 +114,8 @@ blogpostsRouter.put("/:blogpostID", async (req, res, next) => {
     }
 })
 
-blogpostsRouter.delete("/:blogpostID", async (req, res, next) => {
+//ADMIN DELETE
+blogpostsRouter.delete("/:blogpostID", basicAuthMiddleware, adminOnlyMiddleware, async (req, res, next) => {
     try {
         const deletedBlogpost = await BlogpostsModel.findByIdAndDelete(req.params.blogpostID)
         if (deletedBlogpost) {
