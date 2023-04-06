@@ -2,6 +2,7 @@ import express from "express"
 import createHttpError from "http-errors"
 import createError from "http-errors"
 import q2m from "query-to-mongo"
+import passport from "passport"
 import { JWTAuthMiddleware } from "../lib/auth/jwt.js"
 import { adminOnlyMiddleware } from "../lib/auth/admin.js"
 import { createTokens, verifyTokensAndCreateNewTokens } from "../lib/auth/tools.js"
@@ -9,7 +10,16 @@ import AuthorsModel from "./model.js"
 
 const authorsRouter = express.Router()
 
-//REGISTER a new author
+authorsRouter.get("/googleLogin", passport.authenticate("google", { scope: ["profile", "email"] }))
+
+authorsRouter.get("/googleRedirect", passport.authenticate("google", { session: false }), (req, res, next) => {
+    try {
+        res.redirect(`${process.env.FE_URL}?accessToken=${req.user.accessToken}`)
+    } catch (error) {
+        next(error)
+    }
+})
+
 authorsRouter.post("/", async (req, res, next) => {
     try {
         const newAuthor = new AuthorsModel(req.body)
@@ -20,23 +30,14 @@ authorsRouter.post("/", async (req, res, next) => {
     }
 })
 
-
-//LOGIN returns an access token
 authorsRouter.post("/login", async (req, res, next) => {
     try {
-        // 1. Obtain credentials from req.body
         const { email, password } = req.body
-
-        // 2. Verify the credentials
         const author = await AuthorsModel.checkCredentials(email, password)
-
         if (author) {
-            // 3.1 If credentials are fine --> create an access token (JWT) and a refresh Token and send them back as a response
-
             const { accessToken, refreshToken } = await createTokens(author)
             res.send({ accessToken, refreshToken })
         } else {
-            // 3.2 If they are not --> trigger a 401 error
             next(createError(401, "Credentials are not ok!"))
         }
     } catch (error) {
@@ -46,14 +47,8 @@ authorsRouter.post("/login", async (req, res, next) => {
 
 authorsRouter.post("/refreshTokens", async (req, res, next) => {
     try {
-        // 1. Obtain the current refresh token from req.body
         const { currentRefreshToken } = req.body
-
-        // 2. Check the validity of that token (check if it's not expired, check if it hasn't been modified, check if it is the same as the one in db)
-        // 3. If all the checks are fine --> generate a new pair of tokens (accessToken2 & refreshToken2), also replacing the previous refresh token in db
         const { accessToken, refreshToken } = await verifyTokensAndCreateNewTokens(currentRefreshToken)
-
-        // 4. Send the tokens back as response
         res.send({ accessToken, refreshToken })
     } catch (error) {
         next(error)
@@ -122,8 +117,6 @@ authorsRouter.get("/:authorID", JWTAuthMiddleware, async (req, res, next) => {
     }
 })
 
-
-//ADMIN PUT
 authorsRouter.put("/:authorID", JWTAuthMiddleware, adminOnlyMiddleware, async (req, res, next) => {
     try {
         const updatedAuthor = await AuthorsModel.findByIdAndUpdate(
@@ -141,8 +134,6 @@ authorsRouter.put("/:authorID", JWTAuthMiddleware, adminOnlyMiddleware, async (r
     }
 })
 
-
-//ADMIN DELETE
 authorsRouter.delete("/:authorID", JWTAuthMiddleware, adminOnlyMiddleware, async (req, res, next) => {
     try {
         const deletedAuthor = await AuthorsModel.findByIdAndDelete(req.params.authorID)
