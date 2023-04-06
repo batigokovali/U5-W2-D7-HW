@@ -3,6 +3,7 @@ import listEndpoints from "express-list-endpoints"
 import cors from "cors"
 import mongoose from "mongoose"
 import passport from "passport"
+import createHttpError from "http-errors"
 import { forbiddenErrorHandler, genericErroHandler, notFoundErrorHandler, unauthorizedErrorHandler } from "./errorHandlers.js"
 import blogpostsRouter from "./blogposts/index.js"
 import authorsRouter from "./authors/index.js"
@@ -15,7 +16,7 @@ passport.use("google", googleStrategy)
 
 //Middlewares
 
-const whitelist = [process.env.FE_DEV_URL, process.env.FE_PROD_URL]
+const whitelist = [process.env.FE_URL, process.env.FE_PROD_URL]
 server.use(cors(
     {
         origin: (currentOrigin, corsNext) => {
