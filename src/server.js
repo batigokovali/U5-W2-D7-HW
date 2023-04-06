@@ -2,10 +2,11 @@ import Express from "express"
 import listEndpoints from "express-list-endpoints"
 import cors from "cors"
 import mongoose from "mongoose"
-import googleStrategy from "./lib/auth/googleOauth.js"
+import passport from "passport"
 import { forbiddenErrorHandler, genericErroHandler, notFoundErrorHandler, unauthorizedErrorHandler } from "./errorHandlers.js"
 import blogpostsRouter from "./blogposts/index.js"
 import authorsRouter from "./authors/index.js"
+import googleStrategy from "../src/lib/auth/googleOauth.js"
 
 const server = Express()
 const port = process.env.PORT || 3001

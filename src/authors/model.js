@@ -9,7 +9,7 @@ const authorsSchema = new Schema(
         lastName: { type: String, required: true },
         email: { type: String, required: true },
         avatar: { type: String },
-        password: { type: String, required: true },
+        password: { type: String, required: false },
         role: { type: String, required: true, enum: ["Admin", "User"], default: "User" },
     },
     {
